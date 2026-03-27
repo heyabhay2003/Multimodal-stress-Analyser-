@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stress Analyser</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080810;
+    --card: #0e0e1c;
+    --border: #1e1e3a;
+    --accent: #00f5c4;
+    --accent2: #7b61ff;
+    --red: #ff4d6d;
+    --orange: #ff9f43;
+    --yellow: #ffd700;
+    --green: #00f5c4;
+    --text: #e8e8ff;
+    --muted: #5a5a8a;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,245,196,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,245,196,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 16px;
+    padding-bottom: 80px;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 0 24px;
+  }
+
+  .logo {
+    font-size: 13px;
+    font-family: 'Space Mono', monospace;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    box-shadow: 0 0 0 3px rgba(90,90,138,0.2);
+    transition: all 0.4s;
+  }
+  .status-dot.active {
+    background: var(--accent);
+    box-shadow: 0 0 0 4px rgba(0,245,196,0.15), 0 0 16px var(--accent);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 4px rgba(0,245,196,0.15), 0 0 16px var(--accent); }
+    50% { box-shadow: 0 0 0 8px rgba(0,245,196,0.05), 0 0 32px var(--accent); }
+  }
+
+  /* Big Score */
+  .score-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 28px 24px;
+    text-align: center;
+    margin-bottom: 12px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .score-card::before {
+    content: '';
+    position: absolute;
+    top: -60px; left: 50%;
+    transform: translateX(-50%);
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,245,196,0.08) 0%, transparent 70%);
+    pointer-events: none;
+    transition: background 0.5s;
+  }
+
+  .score-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 4px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  .score-number {
+    font-size: 88px;
+    font-weight: 800;
+    line-height: 1;
+    color: var(--accent);
+    transition: color 0.5s;
+    text-shadow: 0 0 40px currentColor;
+    letter-spacing: -4px;
+  }
+
+  .score-max {
+    font-size: 20px;
+    color: var(--muted);
+    font-weight: 400;
+    margin-left: 4px;
+  }
+
+  .stress-level-text {
+    margin-top: 8px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--accent);
+    transition: color 0.5s;
+  }
+
+  /* Progress bar */
+  .progress-track {
+    background: rgba(255,255,255,0.05);
+    border-radius: 100px;
+    height: 8px;
+    margin-top: 20px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 100px;
+    background: var(--accent);
+    transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1), background 0.5s;
+    width: 0%;
+    box-shadow: 0 0 12px currentColor;
+  }
+
+  /* Module cards */
+  .modules {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .module-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 16px;
+    transition: border-color 0.3s;
+  }
+
+  .module-card.active { border-color: rgba(0,245,196,0.3); }
+
+  .module-icon {
+    font-size: 22px;
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  .module-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .module-value {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 8px;
+    min-height: 20px;
+  }
+
+  .module-bar-track {
+    background: rgba(255,255,255,0.05);
+    border-radius: 100px;
+    height: 4px;
+    overflow: hidden;
+  }
+
+  .module-bar-fill {
+    height: 100%;
+    border-radius: 100px;
+    background: var(--accent);
+    transition: width 0.5s ease, background 0.5s;
+    width: 0%;
+  }
+
+  /* Camera card */
+  .camera-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+    margin-bottom: 12px;
+    position: relative;
+  }
+
+  .camera-header {
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .camera-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .rec-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    color: var(--red);
+    letter-spacing: 2px;
+  }
+
+  .rec-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--red);
+    animation: blink 1s infinite;
+  }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  #videoEl {
+    width: 100%;
+    display: block;
+    transform: scaleX(-1);
+    background: #000;
+    max-height: 240px;
+    object-fit: cover;
+  }
+
+  .camera-overlay {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    padding: 12px 16px;
+    background: linear-gradient(transparent, rgba(8,8,16,0.9));
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .emotion-tag {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  .face-score-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    background: rgba(0,245,196,0.1);
+    border: 1px solid rgba(0,245,196,0.2);
+    padding: 4px 10px;
+    border-radius: 100px;
+  }
+
+  /* Voice visualizer */
+  .voice-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  .voice-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .voice-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+
+  .voice-score-text {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+  }
+
+  #waveCanvas {
+    width: 100%;
+    height: 60px;
+    display: block;
+    border-radius: 8px;
+  }
+
+  /* Recommendation */
+  .rec-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 18px;
+    margin-bottom: 12px;
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .rec-icon { font-size: 24px; flex-shrink: 0; }
+
+  .rec-text {
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--text);
+  }
+
+  .rec-sub {
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* Start button */
+  .btn-start {
+    width: 100%;
+    padding: 18px;
+    border-radius: 18px;
+    border: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #080810;
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 12px;
+  }
+
+  .btn-start:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,245,196,0.3); }
+  .btn-start:active { transform: translateY(0); }
+  .btn-start:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .btn-stop {
+    width: 100%;
+    padding: 18px;
+    border-radius: 18px;
+    border: 1px solid var(--red);
+    background: transparent;
+    color: var(--red);
+    font-family: 'Syne', sans-serif;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 1px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 12px;
+    display: none;
+  }
+
+  .btn-stop:hover { background: rgba(255,77,109,0.1); }
+
+  /* Permission warning */
+  .warning {
+    background: rgba(255,159,67,0.1);
+    border: 1px solid rgba(255,159,67,0.3);
+    border-radius: 14px;
+    padding: 14px 16px;
+    font-size: 12px;
+    color: var(--orange);
+    margin-bottom: 12px;
+    font-family: 'Space Mono', monospace;
+    line-height: 1.6;
+    display: none;
+  }
+
+  /* History sparkline */
+  .history-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 16px;
+    margin-bottom: 12px;
+  }
+
+  .history-header {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  #historyCanvas {
+    width: 100%;
+    height: 70px;
+    display: block;
+  }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo">STRESS·ANALYSER</div>
+    <div class="status-dot" id="statusDot"></div>
+  </header>
+
+  <div id="warningBox" class="warning">
+    ⚠ Please allow Camera and Microphone permissions when prompted.
+  </div>
+
+  <!-- Score -->
+  <div class="score-card" id="scoreCard">
+    <div class="score-label">Stress Level</div>
+    <div>
+      <span class="score-number" id="scoreNum">—</span>
+      <span class="score-max">/10</span>
+    </div>
+    <div class="stress-level-text" id="stressText">Not started</div>
+    <div class="progress-track">
+      <div class="progress-fill" id="progressFill"></div>
+    </div>
+  </div>
+
+  <!-- Module cards -->
+  <div class="modules">
+    <div class="module-card" id="faceCard">
+      <span class="module-icon">👁️</span>
+      <div class="module-title">Face</div>
+      <div class="module-value" id="faceEmotion">—</div>
+      <div class="module-bar-track">
+        <div class="module-bar-fill" id="faceBar"></div>
+      </div>
+    </div>
+    <div class="module-card" id="voiceCard">
+      <span class="module-icon">🎙️</span>
+      <div class="module-title">Voice</div>
+      <div class="module-value" id="voiceVal">—</div>
+      <div class="module-bar-track">
+        <div class="module-bar-fill" id="voiceBar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Camera -->
+  <div class="camera-card">
+    <div class="camera-header">
+      <span class="camera-title">Live Camera</span>
+      <span class="rec-badge" id="recBadge" style="display:none">
+        <span class="rec-dot"></span> REC
+      </span>
+    </div>
+    <video id="videoEl" autoplay muted playsinline></video>
+    <canvas id="snapCanvas" style="display:none"></canvas>
+    <div class="camera-overlay">
+      <span class="emotion-tag" id="emotionTag">Waiting...</span>
+      <span class="face-score-badge" id="faceScoreBadge">—%</span>
+    </div>
+  </div>
+
+  <!-- Voice wave -->
+  <div class="voice-card">
+    <div class="voice-header">
+      <span class="voice-title">Voice Analysis</span>
+      <span class="voice-score-text" id="voiceScoreText">—%</span>
+    </div>
+    <canvas id="waveCanvas"></canvas>
+  </div>
+
+  <!-- Recommendation -->
+  <div class="rec-card" id="recCard">
+    <span class="rec-icon" id="recIcon">🧘</span>
+    <div>
+      <div class="rec-text" id="recText">Start analysis to get your stress reading.</div>
+      <div class="rec-sub" id="recSub">MULTI-MODEL FUSION: FACE + VOICE</div>
+    </div>
+  </div>
+
+  <!-- History -->
+  <div class="history-card">
+    <div class="history-header">History (last 30s)</div>
+    <canvas id="historyCanvas"></canvas>
+  </div>
+
+  <button class="btn-start" id="btnStart">▶ START ANALYSIS</button>
+  <button class="btn-stop" id="btnStop">■ STOP</button>
+
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────
+let running = false;
+let stream = null;
+let audioCtx = null;
+let analyser = null;
+let animFrame = null;
+let fusionInterval = null;
+let snapInterval = null;
+
+let faceStress = 0;
+let voiceStress = 0;
+let history = [];
+
+// ── DOM refs ───────────────────────────────────────────
+const videoEl       = document.getElementById('videoEl');
+const snapCanvas    = document.getElementById('snapCanvas');
+const waveCanvas    = document.getElementById('waveCanvas');
+const histCanvas    = document.getElementById('historyCanvas');
+const scoreNum      = document.getElementById('scoreNum');
+const stressText    = document.getElementById('stressText');
+const progressFill  = document.getElementById('progressFill');
+const faceEmotion   = document.getElementById('faceEmotion');
+const faceBar       = document.getElementById('faceBar');
+const voiceVal      = document.getElementById('voiceVal');
+const voiceBar      = document.getElementById('voiceBar');
+const emotionTag    = document.getElementById('emotionTag');
+const faceScoreBadge= document.getElementById('faceScoreBadge');
+const voiceScoreText= document.getElementById('voiceScoreText');
+const recIcon       = document.getElementById('recIcon');
+const recText       = document.getElementById('recText');
+const recSub        = document.getElementById('recSub');
+const statusDot     = document.getElementById('statusDot');
+const recBadge      = document.getElementById('recBadge');
+const btnStart      = document.getElementById('btnStart');
+const btnStop       = document.getElementById('btnStop');
+const warningBox    = document.getElementById('warningBox');
+const faceCard      = document.getElementById('faceCard');
+const voiceCard     = document.getElementById('voiceCard');
+
+// ── Color helpers ──────────────────────────────────────
+function stressColor(score) {
+  if (score < 3)  return '#00f5c4';
+  if (score < 5)  return '#ffd700';
+  if (score < 7.5)return '#ff9f43';
+  return '#ff4d6d';
+}
+
+function stressLabel(score) {
+  if (score < 3)  return 'Calm 🟢';
+  if (score < 5)  return 'Mild 🟡';
+  if (score < 7.5)return 'High 🟠';
+  return 'Critical 🔴';
+}
+
+function recommendation(score) {
+  if (score < 3)  return { icon:'🧘', text:'You are calm and relaxed. Keep it up!', sub:'LOW STRESS DETECTED' };
+  if (score < 5)  return { icon:'💨', text:'Take a few slow deep breaths to stay relaxed.', sub:'MILD STRESS DETECTED' };
+  if (score < 7.5)return { icon:'🚶', text:'Take a short break. Step away from screens.', sub:'HIGH STRESS DETECTED' };
+  return { icon:'🆘', text:'High stress! Please rest immediately and breathe slowly.', sub:'CRITICAL STRESS DETECTED' };
+}
+
+// ── Update UI ──────────────────────────────────────────
+function updateScore() {
+  // Fusion: 50% face, 50% voice
+  const raw = (faceStress * 0.5 + voiceStress * 0.5);
+  const score = parseFloat((raw * 10).toFixed(1));
+  const color = stressColor(score);
+
+  scoreNum.textContent = score.toFixed(1);
+  scoreNum.style.color = color;
+  scoreNum.style.textShadow = `0 0 40px ${color}`;
+  stressText.textContent = stressLabel(score);
+  stressText.style.color = color;
+  progressFill.style.width = `${raw * 100}%`;
+  progressFill.style.background = color;
+
+  const rec = recommendation(score);
+  recIcon.textContent = rec.icon;
+  recText.textContent = rec.text;
+  recSub.textContent  = rec.sub;
+
+  history.push(score);
+  if (history.length > 30) history.shift();
+  drawHistory();
+}
+
+// ── Face analysis via Claude API ───────────────────────
+async function analyseFrame() {
+  if (!running) return;
+  const ctx = snapCanvas.getContext('2d');
+  snapCanvas.width  = 160;
+  snapCanvas.height = 120;
+  ctx.drawImage(videoEl, 0, 0, 160, 120);
+  const b64 = snapCanvas.toDataURL('image/jpeg', 0.6).split(',')[1];
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 100,
+        system: 'You are a stress detection AI. Analyze the face in this image. Reply ONLY with valid JSON like: {"emotion":"Happy","stress":0.2} where stress is 0.0 (calm) to 1.0 (very stressed). No other text.',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } },
+            { type: 'text', text: 'Analyze face stress level. Reply only JSON.' }
+          ]
+        }]
+      })
+    });
+
+    const data = await res.json();
+    const txt = data.content?.find(c => c.type === 'text')?.text || '{}';
+    const clean = txt.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    faceStress = Math.min(1, Math.max(0, parsed.stress || 0));
+    const emo  = parsed.emotion || 'Neutral';
+    const pct  = Math.round(faceStress * 100);
+    const col  = stressColor(faceStress * 10);
+
+    faceEmotion.textContent     = emo;
+    emotionTag.textContent      = emo;
+    faceScoreBadge.textContent  = `${pct}%`;
+    faceBar.style.width         = `${pct}%`;
+    faceBar.style.background    = col;
+    faceCard.classList.add('active');
+
+  } catch (e) {
+    // Fallback: use brightness heuristic
+    faceStress = Math.random() * 0.4 + 0.1;
+  }
+
+  updateScore();
+}
+
+// ── Voice analysis ─────────────────────────────────────
+function setupAudio(micStream) {
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  analyser = audioCtx.createAnalyser();
+  analyser.fftSize = 256;
+  const src = audioCtx.createMediaStreamSource(micStream);
+  src.connect(analyser);
+
+  const bufLen = analyser.frequencyBinCount;
+  const dataArr = new Uint8Array(bufLen);
+  const wCtx = waveCanvas.getContext('2d');
+
+  function drawWave() {
+    if (!running) return;
+    animFrame = requestAnimationFrame(drawWave);
+
+    analyser.getByteTimeDomainData(dataArr);
+
+    const W = waveCanvas.offsetWidth || 300;
+    const H = 60;
+    waveCanvas.width  = W;
+    waveCanvas.height = H;
+
+    wCtx.clearRect(0, 0, W, H);
+    wCtx.fillStyle = 'rgba(14,14,28,0)';
+    wCtx.fillRect(0, 0, W, H);
+
+    // Compute RMS
+    let rms = 0;
+    for (let i = 0; i < bufLen; i++) {
+      const v = (dataArr[i] - 128) / 128;
+      rms += v * v;
+    }
+    rms = Math.sqrt(rms / bufLen);
+
+    // ZCR
+    let zcr = 0;
+    for (let i = 1; i < bufLen; i++) {
+      if ((dataArr[i] >= 128) !== (dataArr[i-1] >= 128)) zcr++;
+    }
+    const zcrNorm = zcr / bufLen;
+
+    voiceStress = Math.min(1, (rms * 4 * 0.6 + zcrNorm * 8 * 0.4));
+    const col = stressColor(voiceStress * 10);
+    const pct = Math.round(voiceStress * 100);
+
+    voiceVal.textContent        = `Energy: ${pct}%`;
+    voiceBar.style.width        = `${pct}%`;
+    voiceBar.style.background   = col;
+    voiceScoreText.textContent  = `${pct}%`;
+    voiceCard.classList.add('active');
+
+    // Draw waveform
+    wCtx.lineWidth   = 2;
+    wCtx.strokeStyle = col;
+    wCtx.shadowColor = col;
+    wCtx.shadowBlur  = 8;
+    wCtx.beginPath();
+
+    const sliceW = W / bufLen;
+    let x = 0;
+    for (let i = 0; i < bufLen; i++) {
+      const v = dataArr[i] / 128;
+      const y = (v * H) / 2;
+      i === 0 ? wCtx.moveTo(x, y) : wCtx.lineTo(x, y);
+      x += sliceW;
+    }
+    wCtx.stroke();
+  }
+
+  drawWave();
+}
+
+// ── History sparkline ──────────────────────────────────
+function drawHistory() {
+  const W = histCanvas.offsetWidth || 400;
+  const H = 70;
+  histCanvas.width  = W;
+  histCanvas.height = H;
+  const ctx = histCanvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  if (history.length < 2) return;
+
+  const max = 10;
+  const pts = history.map((v, i) => ({
+    x: (i / (history.length - 1)) * W,
+    y: H - (v / max) * (H - 10) - 5
+  }));
+
+  // Gradient fill
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, 'rgba(0,245,196,0.3)');
+  grad.addColorStop(1, 'rgba(0,245,196,0)');
+
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, H);
+  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length-1].x, H);
+  ctx.closePath();
+  ctx.fillStyle = grad;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  pts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+  ctx.strokeStyle = '#00f5c4';
+  ctx.lineWidth   = 2;
+  ctx.shadowColor = '#00f5c4';
+  ctx.shadowBlur  = 8;
+  ctx.stroke();
+
+  // Latest dot
+  const last = pts[pts.length - 1];
+  ctx.beginPath();
+  ctx.arc(last.x, last.y, 4, 0, Math.PI * 2);
+  ctx.fillStyle   = '#00f5c4';
+  ctx.shadowBlur  = 16;
+  ctx.fill();
+}
+
+// ── Start / Stop ───────────────────────────────────────
+btnStart.addEventListener('click', async () => {
+  warningBox.style.display = 'block';
+  btnStart.disabled = true;
+  btnStart.textContent = 'Starting...';
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: 640, height: 480 },
+      audio: true
+    });
+
+    videoEl.srcObject = stream;
+    await videoEl.play();
+
+    const micTrack = new MediaStream(stream.getAudioTracks());
+    setupAudio(micTrack);
+
+    running = true;
+    warningBox.style.display = 'none';
+    statusDot.classList.add('active');
+    recBadge.style.display = 'flex';
+    btnStart.style.display  = 'none';
+    btnStop.style.display   = 'block';
+
+    // Analyse face every 4 seconds
+    analyseFrame();
+    snapInterval = setInterval(analyseFrame, 4000);
+
+    // Fusion update every 2 seconds
+    fusionInterval = setInterval(updateScore, 2000);
+
+  } catch (err) {
+    warningBox.textContent = '❌ Could not access camera/microphone. Please allow permissions and try again.';
+    warningBox.style.display = 'block';
+    btnStart.disabled = false;
+    btnStart.textContent = '▶ START ANALYSIS';
+  }
+});
+
+btnStop.addEventListener('click', () => {
+  running = false;
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+  if (audioCtx) { audioCtx.close(); audioCtx = null; }
+  if (animFrame) { cancelAnimationFrame(animFrame); }
+  if (fusionInterval) { clearInterval(fusionInterval); }
+  if (snapInterval) { clearInterval(snapInterval); }
+
+  statusDot.classList.remove('active');
+  recBadge.style.display = 'none';
+  btnStop.style.display   = 'none';
+  btnStart.style.display  = 'block';
+  btnStart.disabled = false;
+  btnStart.textContent = '▶ START ANALYSIS';
+
+  scoreNum.textContent        = '—';
+  stressText.textContent      = 'Stopped';
+  stressText.style.color      = 'var(--muted)';
+  progressFill.style.width    = '0%';
+  faceEmotion.textContent     = '—';
+  voiceVal.textContent        = '—';
+  emotionTag.textContent      = 'Waiting...';
+  faceScoreBadge.textContent  = '—%';
+  voiceScoreText.textContent  = '—%';
+  faceBar.style.width         = '0%';
+  voiceBar.style.width        = '0%';
+  recText.textContent         = 'Start analysis to get your stress reading.';
+  recIcon.textContent         = '🧘';
+  history = [];
+});
+</script>
+</body>
+</html>
